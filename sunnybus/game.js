@@ -714,10 +714,10 @@ function drawSchoolArch(x, y) {
     ctx.stroke();
 
     ctx.fillStyle = '#b91c1c';
-    ctx.font = '900 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    ctx.font = '900 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('SUNNY SCHOOL!', x, y - 111);
+    ctx.fillText('SUNNY SCHOOL!', x, y - 111, 88);
     ctx.restore();
 }
 

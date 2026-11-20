@@ -46,7 +46,9 @@ const data = games.map((game) => {
     throw new Error(`Could not find the game.js script tag in ${game.id}/index.html`);
   }
 
-  const standalone = html.replace(marker, "<script>\n" + js + "\n</script>");
+  const standalone = html
+    .replace(marker, "<script>\n" + js + "\n</script>")
+    .replace(/\r\n/g, "\n");
   return {
     ...game,
     html: Buffer.from(standalone, "utf8").toString("base64")

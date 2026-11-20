@@ -560,15 +560,31 @@ function drawScoreHUD() {
 }
 
 function drawMuteBadge() {
+    const badgeY = 12;
+    const badgeH = 24;
+    const centerY = badgeY + badgeH / 2;
+
     ctx.save();
-    ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
-    roundedRectPath(GAME_WIDTH - 78, 12, 66, 24, 12);
+    ctx.font = '600 11.5px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+    const soundLabel = muted ? 'Muted' : 'Sound On';
+    const maxSoundW = Math.max(
+        ctx.measureText('Sound On').width,
+        ctx.measureText('Muted').width
+    );
+    const badgeW = Math.ceil(maxSoundW) + 24;
+    const badgeX = GAME_WIDTH - 12 - badgeW;
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.72)';
+    ctx.strokeStyle = '#334155';
+    ctx.lineWidth = 1.2;
+    roundedRectPath(badgeX, badgeY, badgeW, badgeH, badgeH / 2);
     ctx.fill();
+    ctx.stroke();
+
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillStyle = '#f8fafc';
-    ctx.fillText(muted ? 'Muted' : 'Sound On', GAME_WIDTH - 22, 18);
+    ctx.fillText(soundLabel, badgeX + badgeW / 2, centerY + 0.5);
     ctx.restore();
 }
 
@@ -862,7 +878,7 @@ function handleAction(e) {
         const scaleY = GAME_HEIGHT / rect.height;
         const clickX = (e.clientX - rect.left) * scaleX;
         const clickY = (e.clientY - rect.top) * scaleY;
-        if (clickX >= GAME_WIDTH - 82 && clickY <= 40) {
+        if (clickX >= GAME_WIDTH - 96 && clickY <= 44) {
             muted = !muted;
             return;
         }
@@ -885,6 +901,13 @@ canvas.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     handleAction(e);
 });
+
+// Prevent mobile double-tap zoom and pinch-zoom while tapping rapidly
+canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+canvas.addEventListener('touchend', (e) => e.preventDefault(), { passive: false });
+canvas.addEventListener('dblclick', (e) => e.preventDefault());
+document.addEventListener('gesturestart', (e) => e.preventDefault());
 
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
