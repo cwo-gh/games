@@ -772,7 +772,7 @@ function drawTimerHUD() {
 
     ctx.font = '700 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
     ctx.fillStyle = '#7dd3fc';
-    ctx.fillText(`NOSE TOUCHES: ${touches}`, GAME_WIDTH / 2, 92);
+    ctx.fillText(`TOUCHES: ${touches}`, GAME_WIDTH / 2, 92);
 
     if (touchBannerTimer > 0 && lastTouchQuality) {
         ctx.globalAlpha = Math.min(1, touchBannerTimer);
@@ -923,7 +923,7 @@ function drawGameOverOverlay() {
 
     ctx.fillStyle = '#7dd3fc';
     ctx.font = '700 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-    ctx.fillText(`NOSE TOUCHES: ${touches}`, GAME_WIDTH / 2, cardY + 156);
+    ctx.fillText(`TOUCHES: ${touches}`, GAME_WIDTH / 2, cardY + 156);
 
     if (isNewBest) {
         ctx.fillStyle = '#f59e0b';

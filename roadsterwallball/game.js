@@ -911,7 +911,7 @@ function drawGameOverOverlay() {
 
     ctx.fillStyle = '#ef4444';
     ctx.font = '800 26px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-    ctx.fillText('WALL MISSED', GAME_WIDTH / 2, cardY + 34);
+    ctx.fillText('BALL MISSED', GAME_WIDTH / 2, cardY + 34);
 
     ctx.fillStyle = '#94a3b8';
     ctx.font = '600 12px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
@@ -993,10 +993,20 @@ function normalizeBallVelocity() {
 }
 
 function updateBall(dt) {
-    ball.x += ball.vx * dt;
-    ball.y += ball.vy * dt;
-    ball.angle += ball.spin * dt;
+    const moveDist = Math.hypot(ball.vx, ball.vy) * dt;
+    const steps = Math.max(1, Math.min(10, Math.ceil(moveDist / 3)));
+    const stepDt = dt / steps;
 
+    for (let i = 0; i < steps; i++) {
+        ball.x += ball.vx * stepDt;
+        ball.y += ball.vy * stepDt;
+        ball.angle += ball.spin * stepDt;
+        handleBallCollisions();
+        if (gameState !== 'playing') return;
+    }
+}
+
+function handleBallCollisions() {
     // Ceiling and ground act as rebound surfaces.
     if (ball.y - ball.radius < 3) {
         ball.y = 3 + ball.radius;
@@ -1032,9 +1042,6 @@ function updateBall(dt) {
 }
 
 function resolveCarHit() {
-    // Only a ball travelling back toward the car can be returned.
-    if (ball.vx > -0.05) return;
-
     const w = roadster.width;
     const h = roadster.height;
     const cx = roadster.x + w / 2;
@@ -1047,37 +1054,82 @@ function resolveCarHit() {
     const localX = dx * cos - dy * sin;
     const localY = dx * sin + dy * cos;
 
-    const halfW = w * 0.55;
+    // Cover the whole car, including the rear, roof, and underside.
+    const halfW = w * 0.5 + 2;
     const halfH = h * 0.5 + 2;
     const clampedX = Math.max(-halfW, Math.min(halfW, localX));
     const clampedY = Math.max(-halfH, Math.min(halfH, localY));
     const distX = localX - clampedX;
     const distY = localY - clampedY;
-    const hitRadius = ball.radius + 3;
+    const distSq = distX * distX + distY * distY;
 
-    if (distX * distX + distY * distY >= hitRadius * hitRadius) return;
-    if (ball.x < cx) return;
+    if (distSq >= ball.radius * ball.radius) return;
+
+    let nlx;
+    let nly;
+    let penetration;
+
+    if (distSq > 0.0001) {
+        const dist = Math.sqrt(distSq);
+        nlx = distX / dist;
+        nly = distY / dist;
+        penetration = ball.radius - dist;
+    } else {
+        // Ball centre is inside the car: push out through the nearest face.
+        const edgeX = halfW - Math.abs(localX);
+        const edgeY = halfH - Math.abs(localY);
+        if (edgeX < edgeY) {
+            nlx = localX >= 0 ? 1 : -1;
+            nly = 0;
+            penetration = ball.radius + edgeX;
+        } else {
+            nlx = 0;
+            nly = localY >= 0 ? 1 : -1;
+            penetration = ball.radius + edgeY;
+        }
+    }
+
+    // Rotate the contact normal back to world space.
+    const wCos = Math.cos(roadster.rotation);
+    const wSin = Math.sin(roadster.rotation);
+    const nx = nlx * wCos - nly * wSin;
+    const ny = nlx * wSin + nly * wCos;
+
+    // Separate by exactly the overlap, never snap to the nose.
+    ball.x += nx * (penetration + 0.1);
+    ball.y += ny * (penetration + 0.1);
 
     const now = performance.now();
-    if (now - lastCarHit < 130) return;
+    if (now - lastCarHit < 120) return;
 
-    // Hit further from the car's centre sends the ball off at an angle.
-    const offset = Math.max(-1, Math.min(1, localY / (h * 0.5)));
-    const angle = offset * 0.62 + (Math.random() - 0.5) * 0.1;
+    if (ball.vx < -0.05) {
+        // Any contact while the ball is incoming is a return.
+        // The hit point (not a fixed nose position) decides the angle.
+        const offset = Math.max(-1, Math.min(1, localY / (h * 0.5 + ball.radius)));
+        const angle = offset * 0.62 + (Math.random() - 0.5) * 0.1;
 
-    ball.speed = Math.min(MAX_SPEED, ball.speed * SPEED_GAIN);
-    ball.vx = Math.cos(angle) * ball.speed;
-    ball.vy = Math.sin(angle) * ball.speed + roadster.vy * 0.35;
-    normalizeBallVelocity();
+        ball.speed = Math.min(MAX_SPEED, ball.speed * SPEED_GAIN);
+        ball.vx = Math.cos(angle) * ball.speed;
+        ball.vy = Math.sin(angle) * ball.speed + roadster.vy * 0.35;
+        normalizeBallVelocity();
+        ball.spin = 0.22 + ball.speed * 0.02;
 
-    ball.x = Math.max(ball.x, roadster.x + w + ball.radius + 1);
-    ball.spin = 0.22 + ball.speed * 0.02;
-
-    hits++;
-    lastCarHit = now;
-    wallFlash = Math.max(wallFlash, 0.35);
-    spawnTouchSparks(roadster.x + w + 2, ball.y, '#4ade80');
-    playEventSound('hit', ball.speed);
+        hits++;
+        lastCarHit = now;
+        wallFlash = Math.max(wallFlash, 0.35);
+        spawnTouchSparks(ball.x - nx * ball.radius, ball.y - ny * ball.radius, '#4ade80');
+        playEventSound('hit', ball.speed);
+    } else {
+        // Secondary overlap while already moving away: just resolve it cleanly.
+        const relVx = ball.vx - roadster.vx;
+        const relVy = ball.vy - roadster.vy;
+        const relVn = relVx * nx + relVy * ny;
+        if (relVn < 0) {
+            ball.vx -= 1.65 * relVn * nx;
+            ball.vy -= 1.65 * relVn * ny;
+        }
+        lastCarHit = now;
+    }
 }
 
 function triggerGameOver(reason) {
@@ -1131,8 +1183,8 @@ function gameLoop(now) {
         roadster.y = PLAYABLE_HEIGHT * 0.48 + bob;
         roadster.rotation = Math.sin(idleTime * 0.07) * 0.02;
 
-        ball.x = roadster.x + roadster.width - 2;
-        ball.y = roadster.y - ball.radius - 4 + Math.sin(idleTime * 0.07 - 0.3) * 1.5;
+        ball.x = roadster.x + roadster.width + ball.radius + 8;
+        ball.y = roadster.y + roadster.height / 2 + Math.sin(idleTime * 0.07 - 0.3) * 1.5;
         ball.angle += 0.02 * dt;
 
         thrustLevel = 0.52 + 0.14 * Math.sin(idleTime * 0.14);
@@ -1207,7 +1259,6 @@ function handleStartOrRestart() {
         roadster.vy = -1.2;
 
         ball.x = roadster.x + roadster.width + ball.radius + 8;
-        ball.y = roadster.y + roadster.height / 2;
         const angle = (Math.random() < 0.5 ? -1 : 1) * (0.1 + Math.random() * 0.14);
         ball.vx = Math.cos(angle) * ball.speed;
         ball.vy = Math.sin(angle) * ball.speed;
