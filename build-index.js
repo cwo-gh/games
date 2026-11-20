@@ -15,6 +15,12 @@ const games = [
     bestUnit: "s"
   },
   {
+    id: "roadsterwallball",
+    title: "Roadster Wallball",
+    bestKey: "teslaRoadsterWallballBest_v1",
+    bestUnit: "pts"
+  },
+  {
     id: "roadsterhover",
     title: "Roadster Hover",
     bestKey: "teslaRoadsterHoverBestScore_v2",
